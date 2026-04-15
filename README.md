@@ -1,2 +1,2 @@
 # TrendPulse
-TrendPulse: A decision-support system that augments inventory planning using trend signals
+TrendPulse: An AI-powered trend detection system that analyzes online data and recommends what products small vendors should sell before the trend peaks.
