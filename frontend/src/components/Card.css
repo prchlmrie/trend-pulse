@@ -1,0 +1,29 @@
+.predictive-card {
+  border-radius: var(--radius-xl);
+  transition: all 0.2s ease;
+}
+
+.card-padding {
+  padding: var(--spacing-card-padding);
+}
+
+.card-variant-low {
+  background-color: var(--color-surface-container-low);
+}
+
+.card-variant-lowest {
+  background-color: var(--color-surface-container-lowest);
+  /* The Layering Principle: shift from low to lowest provides soft lift */
+}
+
+.card-variant-highest {
+  background-color: var(--color-surface-container-highest);
+  box-shadow: var(--shadow-ambient);
+}
+
+.card-variant-glass {
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: var(--shadow-ambient);
+}

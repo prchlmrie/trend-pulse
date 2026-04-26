@@ -1,0 +1,51 @@
+.predictive-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-sell {
+  background-color: var(--color-secondary-container);
+  color: var(--color-secondary);
+}
+
+.badge-test {
+  background-color: #fef08a; /* amber-200 */
+  color: #b45309; /* amber-700 */
+}
+
+.badge-ignore {
+  background-color: var(--color-surface-container-high);
+  color: var(--color-outline-variant);
+}
+
+.badge-emerging {
+  background-color: var(--color-surface-container-highest);
+  color: var(--color-primary-container);
+}
+
+.badge-growing {
+  background-color: var(--color-secondary-container);
+  color: var(--color-secondary);
+}
+
+.badge-peaking {
+  background-color: var(--color-error-container);
+  color: var(--color-on-error-container);
+}
+
+.badge-declining {
+  background-color: var(--color-surface-container-high);
+  color: var(--color-outline-variant);
+}
+
+.badge-high_opportunity {
+  background-color: var(--color-primary-container);
+  color: var(--color-on-primary);
+  box-shadow: 0 4px 12px rgba(19, 27, 46, 0.2);
+}

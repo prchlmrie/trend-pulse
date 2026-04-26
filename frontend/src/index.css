@@ -1,0 +1,93 @@
+:root {
+  /* Tonal palette */
+  --color-background: #f8f9ff;
+  --color-surface: #f8f9ff;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container-highest: #d3e4fe;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #dce9ff;
+  --color-on-background: #0b1c30;
+  --color-on-surface: #0b1c30;
+  --color-outline-variant: #c6c6cd;
+  
+  --color-primary-container: #131b2e;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #7c839b;
+
+  --color-secondary: #006c49;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #6cf8bb;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  /* Typography */
+  --font-display: 'Manrope', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  /* Spacing */
+  --spacing-section: 80px;
+  --spacing-section-lg: 120px;
+  --spacing-card-padding: 24px;
+  --spacing-text-gap: 8px;
+
+  /* Border Radius */
+  --radius-xl: 1.5rem; /* 24px */
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-ambient: 0px 20px 40px rgba(11, 28, 48, 0.06);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-on-background);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 800; /* Assuming bold for headlines */
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--spacing-text-gap);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+ul {
+  list-style: none;
+}
+
+/* Utilities */
+.glass-panel {
+  background-color: rgba(255, 255, 255, 0.8); /* surface_container_lowest @ 80% */
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.ghost-border {
+  border: 1px solid rgba(198, 198, 205, 0.15); /* outline_variant @ 15% */
+}
+
+/* Base button reset */
+button {
+  background: none;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
