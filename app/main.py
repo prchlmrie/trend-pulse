@@ -1,24 +1,82 @@
-import json
+#main.py
+import asyncio
+import os
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import create_tables, get_connection
-from app.pipeline import run_pipeline
-from app.what_if_simulator import recommend_for_budget
+from app.db.session import get_db
+from app.routers import auth as auth_routes
+from app.routers.auth import get_current_user_id
+from app.pipeline import run_incremental_pipeline, run_pipeline
+from app.schemas.api import (
+    AiAnalystResponse,
+    AllTablesResponse,
+    DashboardSummaryResponse,
+    DataTablesResponse,
+    IngestExternalRequest,
+    IngestExternalResponse,
+    IngestSignalRequest,
+    IngestSignalResponse,
+    NotificationsResponse,
+    OpportunitiesAnalyzeResponse,
+    PipelineIncrementalResponse,
+    PipelineRunResponse,
+    ResellerBlueprintRequest,
+    ResellerBlueprintResponse,
+    RootResponse,
+    SaveStrategyBody,
+    SaveStrategyResponse,
+    TrendDetailResponse,
+    TrendIntelHistoryResponse,
+    TrendListResponse,
+    UserRecommendationsResponse,
+)
+from app.services.analyst_service import AnalystService
+from app.services.budget_service import BudgetService
+from app.services.dashboard_service import DashboardService
+from app.services.data_service import DataService
+from app.ingestion import run_external_api_ingestion
+from app.services.ingest_service import insert_raw_signal
+from app.services.notification_service import NotificationService
+from app.services.reseller_blueprint_service import build_reseller_blueprint
+from app.services.trend_service import TrendService
+from app.services.user_service import UserService
+
+
+class AnalystRequest(BaseModel):
+    question: str
+    user_id: int | None = None
+
+
+DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+
+def _catalog_counts_sync() -> dict[str, int]:
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM trends")
+    trend_count = int(cur.fetchone()[0])
+    cur.execute("SELECT COUNT(*) FROM alerts")
+    alert_count = int(cur.fetchone()[0])
+    conn.close()
+    return {"trend_count": trend_count, "alert_count": alert_count}
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_tables()
+    await asyncio.to_thread(create_tables)
     yield
 
 
 app = FastAPI(lifespan=lifespan, title="TrendPulse API")
+app.include_router(auth_routes.router)
 
-# Frontend mockups are commonly opened from static hosts or file previews.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,390 +86,219 @@ app.add_middleware(
 )
 
 
-def fetch_table(table_name):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(f"SELECT * FROM {table_name}")
-    rows = cursor.fetchall()
-    columns = [desc[0] for desc in cursor.description]
-    result = [dict(zip(columns, row)) for row in rows]
-    conn.close()
-    return result
+@app.post("/api/ai-analyst", response_model=AiAnalystResponse)
+async def ai_analyst_endpoint(body: AnalystRequest):
+    """
+    AI Analyst — answers natural-language questions about trends using live DB data.
+
+    Request body:
+        { "question": "Why is risk HIGH for Biodegradable Phone Cases?", "user_id": 1 }
+
+    Response:
+        {
+            "answer": "...",
+            "intent": "RISK_EXPLANATION",
+            "trend": "Biodegradable Phone Cases",
+            "sources": ["trend: Biodegradable Phone Cases", "trend_metrics", ...],
+            "mock": false
+        }
+    """
+    if not body.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    return await AnalystService.ask(body.question.strip(), body.user_id)
 
 
-def _competition_label(score):
-    score = float(score or 0.0)
-    if score < 0.34:
-        return "LOW"
-    if score < 0.67:
-        return "MEDIUM"
-    return "HIGH"
+@app.get("/", response_model=RootResponse)
+async def root():
+    return RootResponse(message="TrendPulse API is running")
 
 
-def _rows_to_dicts(cursor):
-    rows = cursor.fetchall()
-    columns = [desc[0] for desc in cursor.description]
-    return [dict(zip(columns, row)) for row in rows]
-
-
-def _build_time_series(cursor, trend_id, days):
-    today = datetime.utcnow().date()
-    start = today - timedelta(days=days - 1)
-    labels = [(start + timedelta(days=i)).isoformat() for i in range(days)]
-    by_day = {label: {"mentions": 0, "engagement": 0} for label in labels}
-
-    cursor.execute(
-        """
-        SELECT substr(r.created_at, 1, 10) AS day,
-               COUNT(*) AS mentions,
-               COALESCE(SUM(r.engagement), 0) AS engagement
-        FROM trend_mentions tm
-        JOIN processed_data p ON p.id = tm.processed_id
-        JOIN raw_data r ON r.id = p.raw_id
-        WHERE tm.trend_id = ?
-          AND date(substr(r.created_at, 1, 10)) >= date(?)
-        GROUP BY day
-        ORDER BY day
-        """,
-        (trend_id, start.isoformat()),
+@app.post("/pipeline/run", response_model=PipelineRunResponse)
+async def run_pipeline_now():
+    before = await asyncio.to_thread(_catalog_counts_sync)
+    await asyncio.to_thread(run_pipeline)
+    after = await asyncio.to_thread(_catalog_counts_sync)
+    dt = after["trend_count"] - before["trend_count"]
+    da = after["alert_count"] - before["alert_count"]
+    msg = (
+        f"Pipeline completed. Catalog: {after['trend_count']} trends, {after['alert_count']} alerts "
+        f"(change: {dt:+d} trends, {da:+d} alerts)."
+    )
+    return PipelineRunResponse(
+        ok=True,
+        message=msg,
+        trend_count=after["trend_count"],
+        alert_count=after["alert_count"],
+        trends_delta=dt,
+        alerts_delta=da,
     )
 
-    for day, mentions, engagement in cursor.fetchall():
-        if day in by_day:
-            by_day[day] = {"mentions": int(mentions or 0), "engagement": float(engagement or 0.0)}
 
-    return {
-        "labels": labels,
-        "mentions": [by_day[label]["mentions"] for label in labels],
-        "engagement": [by_day[label]["engagement"] for label in labels],
-    }
+@app.post("/pipeline/incremental", response_model=PipelineIncrementalResponse)
+async def run_incremental_pipeline_now():
+    """Recompute trends/metrics from DB without re-inserting seed sample rows."""
+    await asyncio.to_thread(run_incremental_pipeline)
+    return PipelineIncrementalResponse(ok=True, message="Incremental pipeline completed")
 
 
-@app.get("/")
-def root():
-    return {"message": "TrendPulse API is running"}
+@app.post("/api/ingest/signal", response_model=IngestSignalResponse)
+async def ingest_market_signal(
+    body: IngestSignalRequest,
+    x_ingest_token: str | None = Header(default=None, alias="X-Ingest-Token"),
+):
+    """
+    Real-time signal ingestion (webhook-friendly). Inserts into `raw_data`.
 
+    Set env `INGEST_WEBHOOK_TOKEN`; when set, requests must send matching `X-Ingest-Token`.
+    Use `refresh_pipeline: true` to run the incremental pipeline after insert (can be slow).
+    """
+    expected = (os.environ.get("INGEST_WEBHOOK_TOKEN") or "").strip()
+    if expected and (x_ingest_token or "").strip() != expected:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Ingest-Token")
 
-@app.post("/pipeline/run")
-def run_pipeline_now():
-    run_pipeline()
-    return {"ok": True, "message": "Pipeline completed"}
+    if not body.content.strip():
+        raise HTTPException(status_code=400, detail="content cannot be empty")
 
-
-@app.get("/data")
-def get_data():
-    return {
-        "raw_data": fetch_table("raw_data"),
-        "processed_data": fetch_table("processed_data"),
-        "trends": fetch_table("trends"),
-    }
-
-
-@app.get("/all")
-def get_all_tables():
-    tables = [
-        "raw_data",
-        "processed_data",
-        "trends",
-        "trend_mentions",
-        "trend_metrics",
-        "product_insights",
-        "recommendations",
-        "alerts",
-        "users",
-        "user_recommendations",
-    ]
-    return {table: fetch_table(table) for table in tables}
-
-
-@app.get("/dashboard/summary")
-def get_dashboard_summary():
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        SELECT
-            SUM(CASE WHEN lifecycle_stage = 'EMERGING' THEN 1 ELSE 0 END) AS emerging,
-            SUM(CASE WHEN lifecycle_stage = 'GROWING' THEN 1 ELSE 0 END) AS growing,
-            SUM(CASE WHEN lifecycle_stage = 'PEAKING' THEN 1 ELSE 0 END) AS peaking,
-            SUM(CASE WHEN lifecycle_stage = 'DECLINING' THEN 1 ELSE 0 END) AS declining
-        FROM trend_metrics
-        """
+    raw_id = await asyncio.to_thread(
+        insert_raw_signal,
+        body.source.strip() or "webhook",
+        body.content.strip(),
+        body.engagement,
+        body.ingestion_channel.strip() or "webhook",
     )
-    stage_row = cursor.fetchone() or (0, 0, 0, 0)
-    lifecycle_counts = {
-        "emerging": int(stage_row[0] or 0),
-        "growing": int(stage_row[1] or 0),
-        "peaking": int(stage_row[2] or 0),
-        "declining": int(stage_row[3] or 0),
-    }
+    refresh_started = False
+    if body.refresh_pipeline:
+        await asyncio.to_thread(run_incremental_pipeline)
+        refresh_started = True
+    return IngestSignalResponse(raw_id=raw_id, refresh_started=refresh_started)
 
-    cursor.execute(
-        """
-        SELECT
-            t.id AS trend_id,
-            t.name AS trend_name,
-            COALESCE(tm.predicted_growth_14d, 0) AS predicted_growth_14d,
-            COALESCE(tm.trend_score, 0) AS trend_score,
-            COALESCE(pi.competition_score, 0) AS competition_score,
-            COALESCE(pi.profit_score, 0) AS profit_score,
-            COALESCE(r.suggested_action, 'IGNORE') AS suggested_action,
-            COALESCE(r.risk_level, 'MEDIUM') AS risk_level,
-            COALESCE(r.entry_timing, 'WAIT_AND_MONITOR') AS entry_timing,
-            COALESCE(r.suggested_inventory, '') AS suggested_inventory
-        FROM trends t
-        LEFT JOIN trend_metrics tm ON tm.trend_id = t.id
-        LEFT JOIN product_insights pi ON pi.trend_id = t.id
-        LEFT JOIN recommendations r ON r.trend_id = t.id
-        ORDER BY pi.profit_score DESC, tm.trend_score DESC
-        LIMIT 8
-        """
+
+@app.post("/api/ingest/external", response_model=IngestExternalResponse)
+async def ingest_external_apis(
+    body: IngestExternalRequest,
+    x_ingest_token: str | None = Header(default=None, alias="X-Ingest-Token"),
+):
+    """
+    API-first trend ingestion (Phase 1: SerpApi Google Trends → `raw_data`).
+
+    Uses the same `INGEST_WEBHOOK_TOKEN` / `X-Ingest-Token` guard as `/api/ingest/signal` when set.
+    """
+    expected = (os.environ.get("INGEST_WEBHOOK_TOKEN") or "").strip()
+    if expected and (x_ingest_token or "").strip() != expected:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-Ingest-Token")
+
+    result = await asyncio.to_thread(
+        run_external_api_ingestion,
+        body.keywords,
+        body.refresh_pipeline,
+        body.geo,
     )
-    top_rows = _rows_to_dicts(cursor)
-    top_opportunities = []
-    for row in top_rows:
-        top_opportunities.append(
-            {
-                **row,
-                "competition_level": _competition_label(row["competition_score"]),
-            }
-        )
-
-    cursor.execute(
-        """
-        SELECT id, trend_id, alert_level, message, created_at
-        FROM alerts
-        ORDER BY id DESC
-        LIMIT 12
-        """
+    return IngestExternalResponse(
+        ok=True,
+        inserted=int(result["inserted"]),
+        errors=list(result.get("errors") or []),
+        detail=str(result.get("detail") or ""),
     )
-    alerts = _rows_to_dicts(cursor)
-
-    cursor.execute("SELECT AVG(confidence) FROM user_recommendations")
-    avg_conf = float((cursor.fetchone() or [0])[0] or 0.0)
-
-    conn.close()
-    return {
-        "lifecycle_counts": lifecycle_counts,
-        "top_opportunities": top_opportunities,
-        "live_alerts": alerts,
-        "confidence_score": round(avg_conf * 100, 2),
-    }
 
 
-@app.get("/notifications")
-def get_notifications(limit: int = Query(20, ge=1, le=100)):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT id, trend_id, alert_level, message, created_at
-        FROM alerts
-        ORDER BY id DESC
-        LIMIT ?
-        """,
-        (limit,),
+@app.post("/api/reseller/blueprint", response_model=ResellerBlueprintResponse)
+async def post_reseller_blueprint(body: ResellerBlueprintRequest):
+    """
+    Dual SerpApi flow: Google Trends (demand) + Google `site:` marketplace rows (₱ hints),
+    then NVIDIA reseller-style narrative (or mock if no `NVIDIA_API_KEY`).
+    """
+    data = await asyncio.to_thread(
+        build_reseller_blueprint,
+        body.keyword,
+        body.geo,
+        body.include_lazada,
     )
-    items = _rows_to_dicts(cursor)
-    conn.close()
-    return {"items": items}
+    return ResellerBlueprintResponse.model_validate(data)
 
 
-@app.get("/opportunities/analyze")
-def analyze_budget(budget: float = Query(..., gt=0), top_n: int = Query(3, ge=1, le=10)):
-    picks, remaining = recommend_for_budget(budget, top_n=top_n)
-    return {
-        "budget": budget,
-        "recommended_products": picks,
-        "remaining_budget": remaining,
-    }
+@app.get("/data", response_model=DataTablesResponse)
+async def get_data(db: DbSession):
+    data = await DataService.get_data_tables(db)
+    return DataTablesResponse(**data)
 
 
-@app.get("/trends")
-def get_trends(
+@app.get("/all", response_model=AllTablesResponse)
+async def get_all_tables(db: DbSession):
+    data = await DataService.get_all_tables(db)
+    return AllTablesResponse(**data)
+
+
+@app.get("/dashboard/summary", response_model=DashboardSummaryResponse)
+async def get_dashboard_summary(db: DbSession):
+    return await DashboardService.get_summary(db)
+
+
+@app.get("/notifications", response_model=NotificationsResponse)
+async def get_notifications(db: DbSession, limit: int = Query(20, ge=1, le=100)):
+    items = await NotificationService.list_alerts(db, limit)
+    return NotificationsResponse(items=items)
+
+
+@app.get("/opportunities/analyze", response_model=OpportunitiesAnalyzeResponse)
+async def analyze_budget(
+    db: DbSession,
+    budget: float = Query(..., gt=0),
+    top_n: int = Query(3, ge=1, le=10),
+):
+    picks, remaining = await BudgetService.recommend_for_budget(db, budget, top_n=top_n)
+    return OpportunitiesAnalyzeResponse(
+        budget=budget,
+        recommended_products=picks,
+        remaining_budget=remaining,
+    )
+
+
+@app.get("/trends", response_model=TrendListResponse)
+async def get_trends(
+    db: DbSession,
     limit: int = Query(50, ge=1, le=500),
     search: str | None = None,
     lifecycle_stage: str | None = None,
     action: str | None = None,
 ):
-    conn = get_connection()
-    cursor = conn.cursor()
-    query = """
-        SELECT
-            t.id,
-            t.name,
-            t.category,
-            COALESCE(t.strength, 0) AS strength,
-            COALESCE(tm.frequency, 0) AS frequency,
-            COALESCE(tm.velocity, 0) AS velocity,
-            COALESCE(tm.predicted_growth_14d, 0) AS predicted_growth_14d,
-            COALESCE(tm.trend_score, 0) AS trend_score,
-            COALESCE(tm.lifecycle_stage, 'EMERGING') AS lifecycle_stage,
-            COALESCE(pi.product_category, 'general') AS product_category,
-            COALESCE(pi.competition_score, 0) AS competition_score,
-            COALESCE(pi.profit_score, 0) AS profit_score,
-            COALESCE(r.suggested_action, 'IGNORE') AS suggested_action,
-            COALESCE(r.risk_level, 'MEDIUM') AS risk_level,
-            COALESCE(r.entry_timing, 'WAIT_AND_MONITOR') AS entry_timing
-        FROM trends t
-        LEFT JOIN trend_metrics tm ON tm.trend_id = t.id
-        LEFT JOIN product_insights pi ON pi.trend_id = t.id
-        LEFT JOIN recommendations r ON r.trend_id = t.id
-    """
-    params = []
-    filters = []
-
-    if search:
-        filters.append("LOWER(t.name) LIKE ?")
-        params.append(f"%{search.strip().lower()}%")
-    if lifecycle_stage:
-        filters.append("UPPER(COALESCE(tm.lifecycle_stage, '')) = ?")
-        params.append(lifecycle_stage.strip().upper())
-    if action:
-        filters.append("UPPER(COALESCE(r.suggested_action, '')) = ?")
-        params.append(action.strip().upper())
-
-    if filters:
-        query += " WHERE " + " AND ".join(filters)
-
-    query += " ORDER BY pi.profit_score DESC, tm.trend_score DESC LIMIT ?"
-    params.append(limit)
-
-    cursor.execute(query, tuple(params))
-    rows = _rows_to_dicts(cursor)
-    conn.close()
-    for row in rows:
-        row["competition_level"] = _competition_label(row["competition_score"])
-    return {"items": rows}
+    rows = await TrendService.list_trends(db, limit, search, lifecycle_stage, action)
+    return TrendListResponse(items=rows)
 
 
-@app.get("/trends/{trend_id}")
-def get_trend_detail(trend_id: int):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT
-            t.id,
-            t.name,
-            t.category,
-            COALESCE(t.strength, 0) AS strength,
-            COALESCE(tm.frequency, 0) AS frequency,
-            COALESCE(tm.total_engagement, 0) AS total_engagement,
-            COALESCE(tm.avg_engagement, 0) AS avg_engagement,
-            COALESCE(tm.velocity, 0) AS velocity,
-            COALESCE(tm.predicted_growth_14d, 0) AS predicted_growth_14d,
-            COALESCE(tm.trend_score, 0) AS trend_score,
-            COALESCE(tm.lifecycle_stage, 'EMERGING') AS lifecycle_stage,
-            COALESCE(pi.product_category, 'general') AS product_category,
-            COALESCE(pi.price_min, 0) AS price_min,
-            COALESCE(pi.price_max, 0) AS price_max,
-            COALESCE(pi.demand_score, 0) AS demand_score,
-            COALESCE(pi.competition_score, 0) AS competition_score,
-            COALESCE(pi.profit_score, 0) AS profit_score,
-            COALESCE(r.suggested_action, 'IGNORE') AS suggested_action,
-            COALESCE(r.suggested_inventory, '') AS suggested_inventory,
-            COALESCE(r.entry_timing, 'WAIT_AND_MONITOR') AS entry_timing,
-            COALESCE(r.risk_level, 'MEDIUM') AS risk_level,
-            COALESCE(r.reasoning, '') AS reasoning
-        FROM trends t
-        LEFT JOIN trend_metrics tm ON tm.trend_id = t.id
-        LEFT JOIN product_insights pi ON pi.trend_id = t.id
-        LEFT JOIN recommendations r ON r.trend_id = t.id
-        WHERE t.id = ?
-        LIMIT 1
-        """,
-        (trend_id,),
-    )
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Trend not found")
-
-    columns = [desc[0] for desc in cursor.description]
-    detail = dict(zip(columns, row))
-
-    detail["competition_level"] = _competition_label(detail["competition_score"])
-    detail["series_7d"] = _build_time_series(cursor, trend_id, 7)
-    detail["series_30d"] = _build_time_series(cursor, trend_id, 30)
-    detail["series_90d"] = _build_time_series(cursor, trend_id, 90)
-
-    cursor.execute(
-        """
-        SELECT p.extracted_keywords
-        FROM trend_mentions tm
-        JOIN processed_data p ON p.id = tm.processed_id
-        WHERE tm.trend_id = ?
-        """,
-        (trend_id,),
-    )
-    keyword_cluster = {}
-    for (raw_keywords,) in cursor.fetchall():
-        try:
-            keywords = json.loads(raw_keywords or "[]")
-        except json.JSONDecodeError:
-            keywords = []
-        for keyword in keywords:
-            key = str(keyword).strip().lower()
-            if not key:
-                continue
-            keyword_cluster[key] = keyword_cluster.get(key, 0) + 1
-    sorted_clusters = sorted(keyword_cluster.items(), key=lambda kv: (-kv[1], kv[0]))
-    detail["keyword_clusters"] = [{"keyword": k, "count": v} for k, v in sorted_clusters[:20]]
-
-    cursor.execute(
-        """
-        SELECT id, alert_level, message, created_at
-        FROM alerts
-        WHERE trend_id = ?
-        ORDER BY id DESC
-        LIMIT 5
-        """,
-        (trend_id,),
-    )
-    detail["alerts"] = _rows_to_dicts(cursor)
-    conn.close()
-    return detail
+@app.get("/trends/{trend_id}", response_model=TrendDetailResponse)
+async def get_trend_detail(db: DbSession, trend_id: int):
+    return await TrendService.get_detail(db, trend_id)
 
 
-@app.get("/users/{user_id}/recommendations")
-def get_user_recommendations(user_id: int):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, name, budget, risk_tolerance, preferred_categories, experience_level FROM users WHERE id = ?", (user_id,))
-    user_row = cursor.fetchone()
-    if not user_row:
-        conn.close()
-        raise HTTPException(status_code=404, detail="User not found")
+@app.get("/trends/{trend_id}/intelligence-history", response_model=TrendIntelHistoryResponse)
+async def get_trend_intelligence_history(
+    db: DbSession,
+    trend_id: int,
+    limit: int = Query(60, ge=1, le=500),
+):
+    """Append-only profit/trend score history from each pipeline refresh."""
+    rows = await TrendService.get_intelligence_history(db, trend_id, limit)
+    return TrendIntelHistoryResponse(items=rows)
 
-    user_columns = [desc[0] for desc in cursor.description]
-    user = dict(zip(user_columns, user_row))
 
-    cursor.execute(
-        """
-        SELECT
-            ur.id,
-            ur.allocated_budget,
-            ur.expected_return,
-            ur.confidence,
-            ur.status,
-            ur.created_at,
-            r.suggested_action,
-            r.suggested_inventory,
-            r.entry_timing,
-            r.risk_level,
-            r.reasoning,
-            t.id AS trend_id,
-            t.name AS trend_name
-        FROM user_recommendations ur
-        JOIN recommendations r ON r.id = ur.recommendation_id
-        JOIN trends t ON t.id = r.trend_id
-        WHERE ur.user_id = ?
-        ORDER BY ur.allocated_budget DESC
-        """,
-        (user_id,),
-    )
-    items = _rows_to_dicts(cursor)
-    conn.close()
-    return {"user": user, "items": items}
+@app.get("/users/{user_id}/recommendations", response_model=UserRecommendationsResponse)
+async def get_user_recommendations(db: DbSession, user_id: int):
+    return await UserService.get_user_recommendations(db, user_id)
+
+
+@app.post("/users/me/portfolio/strategy", response_model=SaveStrategyResponse)
+async def save_finder_strategy_to_portfolio(
+    body: SaveStrategyBody,
+    db: DbSession,
+    user_id: int = Depends(get_current_user_id),
+):
+    """Persist Opportunity Finder picks for the authenticated user."""
+    if not body.picks:
+        raise HTTPException(status_code=400, detail="No picks to save.")
+    n = await UserService.save_opportunity_picks(db, user_id, [p.model_dump() for p in body.picks])
+    if n == 0:
+        raise HTTPException(
+            status_code=422,
+            detail="Could not link picks to recommendations. Run the pipeline so trends have recommendation rows.",
+        )
+    return SaveStrategyResponse(ok=True, saved=n)

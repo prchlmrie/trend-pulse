@@ -1,22 +1,73 @@
-:root {
-  /* Tonal palette */
-  --color-background: #f8f9ff;
-  --color-surface: #f8f9ff;
-  --color-surface-container-low: #eff4ff;
-  --color-surface-container-highest: #d3e4fe;
+@import "tailwindcss";
+
+/* Oracle design system — Tailwind utilities (v4 @theme) */
+@theme {
+  --color-surface: #ffffff;
+  --color-on-surface: #0b1c30;
+  --color-on-surface-variant: #5c6570;
+  --color-on-background: #0a1628;
+  --color-primary-container: #0f172a;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #a8b4c9;
+  --color-secondary: #047857;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #d1fae5;
+  --color-on-secondary-container: #064e3b;
+  --color-surface-container-low: #f1f5f9;
+  --color-surface-container-high: #e8f0fc;
+  --color-surface-container-highest: #dbeafe;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-high: #dce9ff;
-  --color-on-background: #0b1c30;
+  --color-surface-variant: #a8b4cc;
+  --color-surface-dim: #c5ccdc;
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #410002;
+  --font-headline: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --radius-xl: 1.5rem;
+}
+
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 1.25rem;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+}
+
+:root {
+  /* Editorial canvas (Stripe / Linear style regions) */
+  --editorial-hairline: #eef2f6;
+  --canvas-sidebar: #f4f7ff;
+  --canvas-header: #ffffff;
+  --canvas-main: #ffffff;
+
+  --color-background: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-container-low: #f1f5f9;
+  --color-surface-container-highest: #dbeafe;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #e8f0fc;
+  --color-on-background: #0a1628;
   --color-on-surface: #0b1c30;
   --color-outline-variant: #c6c6cd;
-  
-  --color-primary-container: #131b2e;
-  --color-on-primary: #ffffff;
-  --color-on-primary-container: #7c839b;
 
-  --color-secondary: #006c49;
+  --color-primary-container: #0f172a;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #a8b4c9;
+
+  --color-secondary: #047857;
   --color-on-secondary: #ffffff;
-  --color-secondary-container: #6cf8bb;
+  --color-secondary-container: #d1fae5;
 
   --color-error: #ba1a1a;
   --color-on-error: #ffffff;
@@ -24,7 +75,7 @@
   --color-on-error-container: #93000a;
 
   /* Typography */
-  --font-display: 'Manrope', sans-serif;
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-body: 'Inter', sans-serif;
 
   /* Spacing */
@@ -38,7 +89,8 @@
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-ambient: 0px 20px 40px rgba(11, 28, 48, 0.06);
+  --shadow-ambient: 0 20px 50px rgba(15, 23, 42, 0.06);
+  --shadow-card: 0 4px 24px rgba(15, 23, 42, 0.05);
 }
 
 *, *::before, *::after {
@@ -58,8 +110,8 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
-  font-weight: 800; /* Assuming bold for headlines */
-  line-height: 1.1;
+  font-weight: 600;
+  line-height: 1.2;
   letter-spacing: -0.02em;
   margin-bottom: var(--spacing-text-gap);
 }
@@ -67,6 +119,12 @@ h1, h2, h3, h4, h5, h6 {
 a {
   text-decoration: none;
   color: inherit;
+}
+
+/* Money & stats: Inter tabular for scanning */
+.font-tabular {
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
 ul {

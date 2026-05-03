@@ -1,14 +1,7 @@
 import json
-import os
 import re
 
-import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-
-API_KEY = os.getenv("QWEN_API_KEY")
-API_URL = "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
+from app.nvidia_llm import build_nvidia_client, get_keywords_model, get_nvidia_api_key
 
 
 def _parse_keywords(content):
@@ -34,8 +27,13 @@ def _parse_keywords(content):
 
 
 def extract_keywords(text):
-    if not API_KEY:
-        print("QWEN_API_KEY is missing.")
+    if not get_nvidia_api_key():
+        print("NVIDIA_API_KEY is missing.")
+        return []
+
+    client = build_nvidia_client()
+    if client is None:
+        print("OpenAI SDK unavailable or NVIDIA client could not be built.")
         return []
 
     prompt = f"""
@@ -48,45 +46,29 @@ Example:
 ["oversized hoodie", "streetwear"]
 """
 
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "model": "qwen-turbo",
-        "input": {
-            "messages": [{"role": "user", "content": prompt}],
-        },
-    }
-
     try:
-        session = requests.Session()
-        session.trust_env = False
-        response = session.post(API_URL, headers=headers, json=payload, timeout=30)
-    except requests.RequestException as exc:
-        print(f"Qwen request failed: {exc}")
+        response = client.chat.completions.create(
+            model=get_keywords_model(),
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You reply with a single JSON array of strings only. No markdown.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            top_p=0.95,
+            max_tokens=768,
+            stream=False,
+        )
+    except Exception as exc:
+        print(f"NVIDIA keyword request failed: {exc}")
         return []
 
-    if response.status_code != 200:
-        print(f"Qwen API error {response.status_code}: {response.text}")
-        return []
-
-    try:
-        body = response.json()
-    except json.JSONDecodeError as exc:
-        print(f"Unable to parse Qwen response JSON: {exc}")
-        return []
-
-    output = body.get("output", {})
-    content = output.get("text")
+    msg = response.choices[0].message
+    content = msg.content
     if content is None:
-        choices = output.get("choices", [])
-        if choices:
-            content = choices[0].get("message", {}).get("content")
-
-    if content is None:
-        print(f"Unable to parse Qwen response envelope: {body}")
+        print(f"Unable to read model content from NVIDIA response.")
         return []
 
     keywords = _parse_keywords(content)

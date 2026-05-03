@@ -16,6 +16,8 @@ TrendPulse is an AI-powered platform that converts noisy market signals into tre
 trendpulse/
   app/                          # Backend FastAPI application
     ai.py
+    ai_analyst.py
+    nvidia_llm.py
     alerts_engine.py
     business_intelligence.py
     database.py
@@ -38,9 +40,9 @@ trendpulse/
         GenerateStrategyPanel.jsx
         Layout.jsx
         OpportunityFinder.jsx  # Budget recommendations
-        PulseIndicator.jsx
         TrendDetail.jsx        # Individual trend analysis
         TrendExplorer.jsx      # Trend browsing
+        AiAnalyst.jsx          # NVIDIA-backed Q&A
       api/
         client.js              # API client for backend
       utils/
@@ -59,9 +61,10 @@ trendpulse/
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Create .env file
-echo "QWEN_API_KEY=your_qwen_key_here" > .env
+# Create .env (see .env.example). NVIDIA Integrate API — OpenAI-compatible.
+echo "NVIDIA_API_KEY=your_nvidia_key_here" > .env
 echo "MONGO_URI=mongodb://localhost:27017" >> .env
+# Defaults: analyst uses streaming + Nemotron thinking (65536 max tokens cap). Set NVIDIA_ENABLE_THINKING=0 to disable.
 
 # Seed the database with sample data
 python run_seed.py
@@ -107,6 +110,7 @@ npm run dev
 - `GET /trends?search=&lifecycle_stage=&action=&limit=50` trend explorer list
 - `GET /trends/{trend_id}` trend detail (7/30/90-day series, keyword clusters, metrics)
 - `GET /opportunities/analyze?budget=3000&top_n=3` budget recommendation output
+- `POST /api/ai-analyst` natural-language trend Q&A (NVIDIA; mock if `NVIDIA_API_KEY` unset)
 - `GET /users/{user_id}/recommendations` personalized recommendations for profile view
 - `GET /data` quick raw/processed/trends view
 - `GET /all` full-table snapshot
@@ -117,12 +121,16 @@ npm run dev
 - **Trend Explorer**: Browse and search trends with filtering by lifecycle stage and recommended actions
 - **Trend Detail**: Deep dive into individual trends with time series data, keyword analysis, and metrics
 - **Opportunity Finder**: Budget-based product recommendations and strategy generation
+- **AI Analyst**: Questions answered with live DB context via NVIDIA (`/api/ai-analyst`)
 
 ## Notes
 
 - CORS is enabled for frontend integration from local/static mockups.
 - Mock data is deduplicated and safe for repeat runs.
 - Schema migrations are handled in `create_tables()` to keep older DB files compatible.
+- Keyword extraction and the AI analyst use the [NVIDIA Integrate API](https://docs.api.nvidia.com/) (`NVIDIA_API_KEY`). Default model is configurable via `NVIDIA_MODEL`.
+- Sample AI prompt/response examples are documented in `SAMPLE_AI_CONVERSATIONS.md`.
+- Planned conversational AI examples are documented in `PLANNED_AI_CONVERSATIONS.md`.
 
 Run full pipeline:
 
@@ -135,22 +143,3 @@ Run API:
 ```bash
 uvicorn app.main:app --reload
 ```
-
-## API Endpoints
-
-- `GET /` health check
-- `POST /pipeline/run` run full pipeline
-- `GET /dashboard/summary` command-center aggregates (lifecycle counts, opportunities, alerts, confidence)
-- `GET /notifications?limit=20` alert feed for navbar/live alerts
-- `GET /trends?search=&lifecycle_stage=&action=&limit=50` trend explorer list
-- `GET /trends/{trend_id}` trend detail (7/30/90-day series, keyword clusters, metrics)
-- `GET /opportunities/analyze?budget=3000&top_n=3` budget recommendation output
-- `GET /users/{user_id}/recommendations` personalized recommendations for profile view
-- `GET /data` quick raw/processed/trends view
-- `GET /all` full-table snapshot
-
-## Notes
-
-- CORS is enabled for frontend integration from local/static mockups.
-- Mock data is deduplicated and safe for repeat runs.
-- Schema migrations are handled in `create_tables()` to keep older DB files compatible.

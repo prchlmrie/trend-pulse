@@ -4,6 +4,7 @@ from datetime import datetime
 
 from app.ai import extract_keywords
 from app.database import get_connection
+from app.nlp_signals import analyze_market_signal
 
 
 def clean_text(text):
@@ -56,18 +57,21 @@ def process_raw_data():
         cleaned = clean_text(content)
         keywords = extract_keywords(cleaned)
         context_tags = extract_context_tags(cleaned)
+        nlp = analyze_market_signal(cleaned)
 
         cursor.execute(
             """
             INSERT INTO processed_data
-            (raw_id, cleaned_text, extracted_keywords, context_tags, processed_at)
-            VALUES (?, ?, ?, ?, ?)
+            (raw_id, cleaned_text, extracted_keywords, context_tags, sentiment, signal_intent, processed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 raw_id,
                 cleaned,
                 json.dumps(keywords),
                 json.dumps(context_tags),
+                nlp["sentiment"],
+                nlp["signal_intent"],
                 datetime.now().isoformat(),
             ),
         )
@@ -93,6 +97,19 @@ def process_raw_data():
         cursor.execute(
             "UPDATE processed_data SET context_tags = ? WHERE id = ?",
             (json.dumps(context_tags), processed_id),
+        )
+
+    cursor.execute(
+        """
+        SELECT id, cleaned_text FROM processed_data
+        WHERE sentiment IS NULL OR sentiment = '' OR signal_intent IS NULL OR signal_intent = ''
+        """
+    )
+    for processed_id, cleaned_text in cursor.fetchall():
+        nlp = analyze_market_signal(cleaned_text or "")
+        cursor.execute(
+            "UPDATE processed_data SET sentiment = ?, signal_intent = ? WHERE id = ?",
+            (nlp["sentiment"], nlp["signal_intent"], processed_id),
         )
 
     conn.commit()

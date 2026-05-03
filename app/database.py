@@ -18,7 +18,8 @@ def create_tables():
         content TEXT,
         engagement INTEGER,
         created_at TEXT,
-        collected_at TEXT
+        collected_at TEXT,
+        ingestion_channel TEXT
     )
     """)
 
@@ -44,6 +45,7 @@ def create_tables():
         strength REAL,
         category TEXT,
         description TEXT,
+        image_url TEXT,
         created_at TEXT
     )
     """)
@@ -128,6 +130,8 @@ def create_tables():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password_hash TEXT,
         name TEXT,
         budget REAL,
         risk_tolerance TEXT,
@@ -153,11 +157,27 @@ def create_tables():
     )
     """)
 
+    # APPEND-ONLY trend intelligence (profit / scores over pipeline runs)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS trend_intelligence_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        trend_id INTEGER NOT NULL,
+        trend_score REAL,
+        profit_score REAL,
+        lifecycle_stage TEXT,
+        frequency REAL,
+        recorded_at TEXT,
+        FOREIGN KEY (trend_id) REFERENCES trends(id)
+    )
+    """)
+
     # Backfill schema for existing DBs created before 'strength' existed
     cursor.execute("PRAGMA table_info(trends)")
     trend_columns = [col[1] for col in cursor.fetchall()]
     if "strength" not in trend_columns:
         cursor.execute("ALTER TABLE trends ADD COLUMN strength REAL")
+    if "image_url" not in trend_columns:
+        cursor.execute("ALTER TABLE trends ADD COLUMN image_url TEXT")
 
     # Backfill schema for existing DBs created before analytics columns existed
     cursor.execute("PRAGMA table_info(trend_metrics)")
@@ -200,9 +220,22 @@ def create_tables():
     processed_columns = [col[1] for col in cursor.fetchall()]
     if "context_tags" not in processed_columns:
         cursor.execute("ALTER TABLE processed_data ADD COLUMN context_tags TEXT")
+    if "sentiment" not in processed_columns:
+        cursor.execute("ALTER TABLE processed_data ADD COLUMN sentiment TEXT")
+    if "signal_intent" not in processed_columns:
+        cursor.execute("ALTER TABLE processed_data ADD COLUMN signal_intent TEXT")
+
+    cursor.execute("PRAGMA table_info(raw_data)")
+    raw_columns = [col[1] for col in cursor.fetchall()]
+    if "ingestion_channel" not in raw_columns:
+        cursor.execute("ALTER TABLE raw_data ADD COLUMN ingestion_channel TEXT")
 
     cursor.execute("PRAGMA table_info(users)")
     user_columns = [col[1] for col in cursor.fetchall()]
+    if "username" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN username TEXT")
+    if "password_hash" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
     if "risk_tolerance" not in user_columns:
         cursor.execute("ALTER TABLE users ADD COLUMN risk_tolerance TEXT")
     if "preferred_categories" not in user_columns:

@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:-change-me-use-long-random-string-in-prod}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+    # Optional: persist SQLite on the host
+    # volumes:
+    #   - ./trendpulse.db:/app/trendpulse.db
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "8080:80"
+    depends_on:
+      - api

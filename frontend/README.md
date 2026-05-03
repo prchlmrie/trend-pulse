@@ -31,7 +31,6 @@ frontend/
       GenerateStrategyPanel.jsx # Strategy generation UI
       Layout.jsx        # App layout with navigation
       OpportunityFinder.jsx # Budget recommendations
-      PulseIndicator.jsx # Trend pulse visualization
       TrendDetail.jsx   # Individual trend analysis
       TrendExplorer.jsx # Trend browsing interface
     api/

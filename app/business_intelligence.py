@@ -5,21 +5,37 @@ from app.database import get_connection
 
 def map_category(trend_name):
     name = trend_name.lower()
-    if "hoodie" in name:
+    if "hoodie" in name or "hoody" in name:
         return "hoodies"
-    if "tshirt" in name or "t-shirt" in name or "shirt" in name:
+    if "tshirt" in name or "t-shirt" in name or "shirt" in name or "tee" in name:
         return "tshirts"
-    if "bag" in name or "tote" in name or "shoulder" in name:
+    if "bag" in name or "tote" in name or "shoulder" in name or "sling" in name:
         return "bags"
+    if "tumbler" in name or "drinkware" in name or "insulated" in name:
+        return "drinkware"
+    if "crocs" in name or "clog" in name or "footwear" in name or "shoe" in name:
+        return "footwear"
+    if "skincare" in name or "sunscreen" in name or "serum" in name or "beauty" in name:
+        return "skincare"
+    if "air fryer" in name or "fryer" in name or "appliance" in name:
+        return "kitchen_appliances"
+    if "lamp" in name or "desk" in name or "organizer" in name:
+        return "home_desk"
     return "general"
 
 
 def estimate_price_range(product_category):
+    """Typical retail spread on Shopee/Lazada PH (PHP), reseller-oriented."""
     ranges = {
-        "hoodies": (18.0, 45.0),
-        "tshirts": (8.0, 25.0),
-        "bags": (12.0, 38.0),
-        "general": (10.0, 30.0),
+        "hoodies": (280.0, 1200.0),
+        "tshirts": (150.0, 650.0),
+        "bags": (120.0, 980.0),
+        "drinkware": (99.0, 1890.0),
+        "footwear": (199.0, 2800.0),
+        "skincare": (89.0, 1450.0),
+        "kitchen_appliances": (899.0, 5200.0),
+        "home_desk": (150.0, 2200.0),
+        "general": (150.0, 950.0),
     }
     return ranges.get(product_category, ranges["general"])
 
