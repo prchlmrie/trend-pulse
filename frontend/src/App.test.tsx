@@ -17,7 +17,8 @@ function wrap(ui: ReactElement) {
 describe('App', () => {
   it('renders login at root', () => {
     render(wrap(<App />));
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/sign in/i);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/welcome back/i);
+    expect(screen.getByRole('tab', { name: /sign in/i })).toBeTruthy();
     expect(screen.getByText('TrendPulse')).toBeTruthy();
   });
 });

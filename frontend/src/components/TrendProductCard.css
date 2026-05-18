@@ -1,0 +1,133 @@
+.tpc-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  background: var(--surface-container-lowest, #fff);
+  border: 1px solid #eef2f6;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+}
+
+.tpc-visual {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: #f1f5f9;
+}
+
+.tpc-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tpc-profit {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.tpc-profit--high {
+  color: #0d5c4b;
+}
+.tpc-profit--mid {
+  color: #b45309;
+}
+.tpc-profit--low {
+  color: #64748b;
+}
+
+.tpc-diff {
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.tpc-diff--easy {
+  background: #0d5c4b;
+}
+.tpc-diff--hard {
+  background: #b91c1c;
+}
+
+.tpc-body {
+  padding: 1rem 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tpc-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.tpc-tags {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--on-surface-variant, #64748b);
+}
+
+.tpc-dot {
+  margin: 0 0.25rem;
+}
+
+.tpc-math-toggle {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: #0d5c4b;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tpc-math {
+  font-size: 0.8rem;
+  color: #475569;
+  padding: 0.5rem 0.65rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+}
+
+.tpc-math p {
+  margin: 0.2rem 0;
+}
+
+.tpc-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.tpc-btn {
+  border-radius: 999px;
+  padding: 0.65rem 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+}
+
+.tpc-btn--primary {
+  background: #0d5c4b;
+  color: #fff;
+}
+
+.tpc-btn--ghost {
+  background: #f1f5f9;
+  color: #334155;
+}

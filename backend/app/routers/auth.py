@@ -22,6 +22,8 @@ def register(body: RegisterRequest):
         raise HTTPException(status_code=409, detail="Username already taken")
 
     display = (body.name or body.username).strip()
+    if body.budget is not None and float(body.budget) < 0:
+        raise HTTPException(status_code=400, detail="Budget must be zero or greater")
     budget = float(body.budget) if body.budget is not None else 15000.0
     ph = hash_password(body.password)
     cur.execute(

@@ -1,21 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { fetchMe, fetchOpportunities, fetchTrends, getAccessToken, saveFinderStrategy } from '../api/client';
 import { formatPHP, trendHeroImage } from '../utils/formatters';
-import {
-  capitalRequired,
-  marketSaturation,
-  merchantRowAction,
-  parseDefaultUnits,
-  roiOnCapital,
-  sellThroughSpeed,
-  unitEconomics,
-} from '../utils/resellerLedger';
+import { marketSaturation, sellThroughSpeed, unitEconomics } from '../utils/resellerLedger';
+import { TrendProductCard } from './TrendProductCard';
 import './TrendExplorer.css';
-
-const TEST_BATCH_UNITS = 10;
 
 function SignalBars({ bars }: { bars: 1 | 2 | 3 }) {
   return (
@@ -92,54 +83,6 @@ function bundleMetrics(chunk: OppItem[], trendList: TrendRow[]): { cost: number;
   return { cost, upside: Math.round(upside) };
 }
 
-function SourcingCalcRow({
-  row,
-  initialUnits,
-  onClose,
-}: {
-  row: TrendRow;
-  initialUnits: number;
-  onClose: () => void;
-}) {
-  const [qty, setQty] = useState(String(Math.max(1, initialUnits)));
-  const ue = unitEconomics(row.price_min, row.price_max, row.profit_score);
-  const n = Math.max(1, Math.floor(Number(qty) || 1));
-  const spend = Math.round(n * ue.wholesale);
-  const gross = Math.round(n * ue.retail);
-  const profitTotal = Math.round(n * ue.profitPerUnit);
-
-  return (
-    <tr className="te-calc-row">
-      <td colSpan={6}>
-        <div className="te-calc-pop">
-          <div className="te-calc-pop-head">
-            <span className="te-calc-pop-title">Quick check · {row.name}</span>
-            <button type="button" className="te-calc-close" onClick={onClose} aria-label="Close calculator">
-              close
-            </button>
-          </div>
-          <label className="te-calc-label" htmlFor={`te-calc-${row.id}`}>
-            Units
-          </label>
-          <input
-            id={`te-calc-${row.id}`}
-            type="number"
-            min={1}
-            className="te-calc-input font-tabular"
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-          />
-          <p className="te-calc-copy font-tabular">
-            If you buy <strong>{n}</strong> units at about <strong>{formatPHP(ue.wholesale, false)}</strong> landed each, you spend{' '}
-            <strong>{formatPHP(spend, false)}</strong>. At retail, that&apos;s roughly <strong>{formatPHP(gross, false)}</strong> out the door —{' '}
-            <span className="te-calc-profit">about {formatPHP(profitTotal, false)}</span> before other costs.
-          </p>
-        </div>
-      </td>
-    </tr>
-  );
-}
-
 export function TrendExplorer() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -149,7 +92,7 @@ export function TrendExplorer() {
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [strategicLens, setStrategicLens] = useState<StrategicLens>('none');
   const [searchQuery, setSearchQuery] = useState('');
-  const [calcRowId, setCalcRowId] = useState<number | null>(null);
+  const [skippedIds, setSkippedIds] = useState<Set<number>>(() => new Set());
   const lastAnalyzedBudgetRef = useRef<string | null>(null);
   const [budgetWatchActive, setBudgetWatchActive] = useState(false);
 
@@ -213,14 +156,6 @@ export function TrendExplorer() {
   }, [lensFiltered]);
 
   const results = oppMutation.data as OppResult | undefined;
-  const budgetPickIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const p of results?.recommended_products ?? []) {
-      if (p.trend_id != null) ids.add(Number(p.trend_id));
-    }
-    return ids;
-  }, [results?.recommended_products]);
-
   const bundleChunks = useMemo(() => {
     const prods = results?.recommended_products ?? [];
     if (!prods.length) return [] as OppItem[][];
@@ -259,9 +194,9 @@ export function TrendExplorer() {
       <main className="mx-auto w-full max-w-7xl px-1 py-6 md:px-0 md:py-8">
         <section className="mb-6 max-w-2xl">
           <p className="te-kicker">Sourcing catalog</p>
-          <h1 className="te-page-title">Active budget planner</h1>
+          <h1 className="te-page-title">Browse trends</h1>
           <p className="te-page-lead">
-            Set capital, run Analyze, then scan rows built around reseller math — hype, starter cost, payoff per unit, and crowd level.
+            Swipe-style product cards — tap Interested to save or Skip to hide. Tap See math only when you want the numbers.
           </p>
         </section>
 
@@ -336,9 +271,9 @@ export function TrendExplorer() {
         </div>
 
         {bundleChunks.length > 0 && (
-          <section className="te-bundle-section" aria-label="Suggested inventory mixes">
-            <h2 className="te-section-title">Suggested inventory mixes</h2>
-            <p className="te-section-sub">Diversified bundles that fit your last analysis — not a single-name bet.</p>
+          <section className="te-bundle-section" aria-label="Your Shopping List">
+            <h2 className="te-section-title">Your Shopping List</h2>
+            <p className="te-section-sub">Balanced bundles of products that fit your budget — better than betting on just one item.</p>
             <div className="te-bundle-grid">
               {bundleChunks.map((chunk, bi) => {
                 const { cost, upside } = bundleMetrics(chunk, trends);
@@ -367,9 +302,9 @@ export function TrendExplorer() {
         )}
 
         {galleryTop3.length > 0 && (
-          <section className="te-gallery-section" aria-label="Top movers">
-            <h2 className="te-section-title">Top movers</h2>
-            <p className="te-section-sub">Sell-through signal and shelf math for quick orientation.</p>
+          <section className="te-gallery-section" aria-label="Hottest Products">
+            <h2 className="te-section-title">Hottest Products</h2>
+            <p className="te-section-sub">These items are moving fast. Check the price gap and estimated profit.</p>
             <div className="te-gallery-grid">
               {galleryTop3.map((row) => {
                 const ue = unitEconomics(row.price_min, row.price_max, row.profit_score);
@@ -403,16 +338,16 @@ export function TrendExplorer() {
         )}
 
         <section id="catalog" className="scroll-mt-28 te-catalog-section">
-          <h2 className="te-section-title">Sourcing rows</h2>
-          <p className="te-section-sub mb-4">Filters narrow the list; numbers use Inter for easier scanning.</p>
+          <h2 className="te-section-title">Full Catalog</h2>
+          <p className="te-section-sub mb-4">Search and filter every trend in our database.</p>
 
-          <div className="te-lens-row" role="group" aria-label="Strategic lenses">
+          <div className="te-lens-row" role="group" aria-label="What is your goal?">
             {(
               [
-                { id: 'none' as const, label: 'All' },
-                { id: 'quick_wins' as const, label: 'Quick wins' },
-                { id: 'steady_growth' as const, label: 'Steady growth' },
-                { id: 'high_stakes' as const, label: 'High stakes' },
+                { id: 'none' as const, label: 'Show All' },
+                { id: 'quick_wins' as const, label: 'Easy Wins ✨' },
+                { id: 'steady_growth' as const, label: 'Safe Growth 📈' },
+                { id: 'high_stakes' as const, label: 'Big Rewards 💰' },
               ] as const
             ).map((chip) => (
               <button
@@ -426,7 +361,7 @@ export function TrendExplorer() {
             ))}
           </div>
           <p className="te-lens-hint mb-4 text-xs text-on-surface-variant">
-            Quick wins: faster sell-through + wide open market. High stakes: saturated crowd with strong scores.
+            Easy Wins: Fast sellers with low competition. Big Rewards: Highly popular items with great profit potential.
           </p>
 
           <div className="rounded-2xl bg-surface-container-low p-4 md:p-6">
@@ -441,108 +376,42 @@ export function TrendExplorer() {
                 />
               </div>
               <div className="flex flex-wrap gap-2" role="group" aria-label="Action filter">
-                {(['ALL', 'SELL', 'TEST', 'IGNORE'] as const).map((f) => (
+                {[
+                  { id: 'ALL', label: 'All Items' },
+                  { id: 'SELL', label: 'Ready to Scale' },
+                  { id: 'TEST', label: 'New Tests' },
+                  { id: 'IGNORE', label: 'Wait/Skip' },
+                ].map((f) => (
                   <button
-                    key={f}
+                    key={f.id}
                     type="button"
-                    onClick={() => setActiveFilter(f)}
-                    className={`te-filter-chip ${activeFilter === f ? 'te-filter-chip--on' : ''}`}
+                    onClick={() => setActiveFilter(f.id)}
+                    className={`te-filter-chip ${activeFilter === f.id ? 'te-filter-chip--on' : ''}`}
                   >
-                    {f === 'ALL' ? 'All' : f}
+                    {f.label}
                   </button>
                 ))}
               </div>
+
             </div>
 
             <div className="overflow-x-auto rounded-xl bg-surface-container-lowest">
               {trendsQuery.isPending ? (
                 <div className="p-12 text-center text-on-surface-variant">Loading trends…</div>
+              ) : tableRows.filter((r) => !skippedIds.has(r.id)).length === 0 ? (
+                <p className="p-8 text-center text-on-surface-variant">No trends match — try another filter or search.</p>
               ) : (
-                <table className="trends-table te-source-table te-source-table--business w-full min-w-[880px] border-collapse">
-                  <thead>
-                    <tr>
-                      <th>Item</th>
-                      <th>Sell-through</th>
-                      <th>Investment &amp; payoff</th>
-                      <th>Market saturation</th>
-                      <th>ROI</th>
-                      <th className="te-col-actions"> </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tableRows.map((row) => {
-                      const ue = unitEconomics(row.price_min, row.price_max, row.profit_score);
-                      const units = parseDefaultUnits(row.suggested_inventory, row.suggested_action);
-                      const speed = sellThroughSpeed(row.velocity ?? 0);
-                      const sat = marketSaturation(row.competition_level);
-                      const batchInvest = capitalRequired(TEST_BATCH_UNITS, ue.wholesale);
-                      const batchProfit = Math.round(TEST_BATCH_UNITS * ue.profitPerUnit);
-                      const roi = roiOnCapital(batchInvest, batchProfit);
-                      const budgetMatch = budgetPickIds.has(row.id);
-                      const declining = (row.lifecycle_stage || '').toUpperCase() === 'DECLINING';
-                      const highRisk = (row.risk_level || '').toUpperCase() === 'HIGH';
-                      const rowRisky = declining || highRisk;
-                      const actionLine = merchantRowAction(row.suggested_action);
-
-                      return (
-                        <Fragment key={row.id}>
-                          <tr
-                            className={`te-source-row te-source-row--case ${budgetMatch ? 'te-source-row--pick' : ''} ${rowRisky ? 'te-source-row--risk' : ''}`}
-                          >
-                            <td>
-                              <div className="te-item-cell">
-                                <img src={trendHeroImage(row)} alt="" className="trend-thumbnail te-thumb-business" />
-                                <div className="trend-name-text">
-                                  <span className="trend-name te-item-name">{row.name}</span>
-                                  <span className="te-merchant-action">{actionLine}</span>
-                                  {budgetMatch && <span className="te-in-mix">In latest mix</span>}
-                                </div>
-                                <button
-                                  type="button"
-                                  className="te-calc-toggle material-symbols-outlined"
-                                  aria-expanded={calcRowId === row.id}
-                                  aria-label={`Calculator for ${row.name}`}
-                                  onClick={() => setCalcRowId((id) => (id === row.id ? null : row.id))}
-                                >
-                                  add_circle
-                                </button>
-                              </div>
-                            </td>
-                            <td className="te-td-speed">
-                              <div className="te-speed-block">
-                                <SignalBars bars={speed.bars} />
-                                <div className="te-speed-copy">
-                                  <span className="te-speed-label">{speed.label}</span>
-                                  <span className="te-speed-hint">{speed.hint}</span>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="font-tabular te-td-invest">
-                              <div className="te-inv-top">{formatPHP(batchInvest, false)}</div>
-                              <div className="te-inv-sub">Test batch · {TEST_BATCH_UNITS} units</div>
-                              <div className="te-inv-profit">+{formatPHP(batchProfit, false)} profit</div>
-                            </td>
-                            <td className={`te-td-saturation te-saturation--${sat.tone}`}>
-                              <span className="te-sat-label">{sat.label}</span>
-                              <span className="te-sat-detail">{sat.detail}</span>
-                            </td>
-                            <td className="te-td-roi">
-                              <span className="te-roi-badge font-tabular">{roi}% ROI</span>
-                            </td>
-                            <td className="te-col-actions">
-                              <button type="button" className="te-link-quiet" onClick={() => navigate(`/trends/${row.id}`)}>
-                                View case
-                              </button>
-                            </td>
-                          </tr>
-                          {calcRowId === row.id ? (
-                            <SourcingCalcRow row={row} initialUnits={units} onClose={() => setCalcRowId(null)} />
-                          ) : null}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div className="te-card-feed">
+                  {tableRows
+                    .filter((r) => !skippedIds.has(r.id))
+                    .map((row) => (
+                      <TrendProductCard
+                        key={row.id}
+                        row={row}
+                        onSkip={() => setSkippedIds((prev) => new Set(prev).add(row.id))}
+                      />
+                    ))}
+                </div>
               )}
             </div>
           </div>

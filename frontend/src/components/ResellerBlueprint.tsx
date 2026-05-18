@@ -63,16 +63,15 @@ export function ResellerBlueprint() {
     <div className="rb-page">
       <div className="rb-hero">
         <p className="rb-kicker">Live data · SerpApi · NVIDIA</p>
-        <h1 className="rb-title">Reseller blueprint</h1>
+        <h1 className="rb-title">Your Business Plan</h1>
         <p className="rb-lead">
-          Pull Google Trends demand plus Shopee/Lazada price hints (via Google <code>site:</code> search), then get a
-          consultant-style readout. Numbers are estimates — always confirm on-marketplace before you buy.
+          Get a detailed plan for any product. We check Google Trends and marketplace prices to show you if it&apos;s worth selling.
         </p>
       </div>
 
       <form className="rb-form" onSubmit={onSubmit}>
         <label className="rb-label" htmlFor="rb-keyword">
-          Product or niche keyword
+          What product are you interested in?
         </label>
         <div className="rb-form-row">
           <input
@@ -109,9 +108,9 @@ export function ResellerBlueprint() {
       {data ? (
         <div className="rb-grid">
           <section className="rb-card">
-            <h2 className="rb-card-title">Demand snapshot</h2>
+            <h2 className="rb-card-title">Is it popular?</h2>
             <p className="rb-metric">
-              <span className="rb-metric-label">Google Trends (tail)</span>
+              <span className="rb-metric-label">Google Search Interest</span>
               <span className="rb-metric-value">{demand?.relative_interest_tail ?? 0}</span>
             </p>
             <p className="rb-muted">
@@ -121,13 +120,13 @@ export function ResellerBlueprint() {
           </section>
 
           <section className="rb-card">
-            <h2 className="rb-card-title">Marketplace signals</h2>
+            <h2 className="rb-card-title">What are others charging?</h2>
             <p className="rb-metric">
-              <span className="rb-metric-label">Listing hits</span>
+              <span className="rb-metric-label">Active Sellers</span>
               <span className="rb-metric-value">{market?.listing_hits ?? 0}</span>
             </p>
             <p className="rb-metric">
-              <span className="rb-metric-label">₱ quotes parsed</span>
+              <span className="rb-metric-label">Price tags found</span>
               <span className="rb-metric-value">{market?.prices_php?.parsed_quote_count ?? 0}</span>
             </p>
             <p className="rb-price-row">
@@ -137,37 +136,36 @@ export function ResellerBlueprint() {
             </p>
             <p className="rb-muted">{market?.sources_tried?.join(' · ')}</p>
           </section>
+<section className="rb-card rb-card--wide">
+  <h2 className="rb-card-title">Your Profit Estimates</h2>
+  <div className="rb-math-grid">
+    <div>
+      <p className="rb-metric-label">Average Sale Price</p>
+      <p className="rb-money">{fmtMoney(math?.est_retail_avg_php ?? null)}</p>
+    </div>
+    <div>
+      <p className="rb-metric-label">What you should pay</p>
+      <p className="rb-money">{fmtMoney(math?.est_buy_floor_php ?? null)}</p>
+    </div>
+    <div>
+      <p className="rb-metric-label">Profit per item</p>
+      <p className="rb-money rb-money--profit">{fmtMoney(math?.est_profit_per_unit_php ?? null)}</p>
+    </div>
+    <div>
+      <p className="rb-metric-label">Estimated Return</p>
+      <p className="rb-money">{math?.roi_percent ?? 0}%</p>
+    </div>
+  </div>
+  {math?.methodology ? <p className="rb-methodology">{math.methodology}</p> : null}
+</section>
 
-          <section className="rb-card rb-card--wide">
-            <h2 className="rb-card-title">Reseller math (illustrative)</h2>
-            <div className="rb-math-grid">
-              <div>
-                <p className="rb-metric-label">Est. retail (avg)</p>
-                <p className="rb-money">{fmtMoney(math?.est_retail_avg_php ?? null)}</p>
-              </div>
-              <div>
-                <p className="rb-metric-label">Est. buy floor (0.55×)</p>
-                <p className="rb-money">{fmtMoney(math?.est_buy_floor_php ?? null)}</p>
-              </div>
-              <div>
-                <p className="rb-metric-label">Est. profit / unit</p>
-                <p className="rb-money">{fmtMoney(math?.est_profit_per_unit_php ?? null)}</p>
-              </div>
-              <div>
-                <p className="rb-metric-label">ROI vs buy floor</p>
-                <p className="rb-money">{math?.roi_percent != null ? `${math.roi_percent.toFixed(1)}%` : '—'}</p>
-              </div>
-            </div>
-            {math?.methodology ? <p className="rb-methodology">{math.methodology}</p> : null}
-          </section>
-
-          <section className="rb-card rb-card--wide rb-card--ai">
-            <div className="rb-card-head">
-              <h2 className="rb-card-title">AI consultant</h2>
-              {data.mock_ai ? <span className="rb-pill">Mock / offline</span> : <span className="rb-pill rb-pill--live">NVIDIA</span>}
-            </div>
-            <pre className="rb-note">{data.consultant_note || '—'}</pre>
-          </section>
+<section className="rb-card rb-card--wide rb-card--ai">
+  <div className="rb-card-head">
+    <h2 className="rb-card-title">AI Recommendation</h2>
+    {data.mock_ai ? <span className="rb-pill">Simulated</span> : <span className="rb-pill rb-pill--live">Live AI Analysis</span>}
+  </div>
+  <pre className="rb-note">{data.consultant_note || '—'}</pre>
+</section>
 
           {market?.samples?.length ? (
             <section className="rb-card rb-card--wide">

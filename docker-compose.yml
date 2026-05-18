@@ -1,7 +1,7 @@
 services:
   api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
@@ -10,7 +10,7 @@ services:
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
     # Optional: persist SQLite on the host
     # volumes:
-    #   - ./trendpulse.db:/app/trendpulse.db
+    #   - ./backend/trendpulse.db:/app/trendpulse.db
 
   web:
     build:

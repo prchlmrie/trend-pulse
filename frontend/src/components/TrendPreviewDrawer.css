@@ -141,9 +141,64 @@
   color: var(--color-on-background);
 }
 
+.tp-drawer-hero {
+  position: relative;
+}
+
+.tp-drawer-badge {
+  position: absolute;
+  bottom: 0.65rem;
+  left: 0.65rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.95);
+  color: #0d5c4b;
+}
+
+.tp-drawer-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.tp-drawer-chip {
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.tp-drawer-chip--up {
+  background: #dcfce7;
+  color: #166534;
+}
+.tp-drawer-chip--down {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.tp-drawer-chip--profit-high {
+  background: #d1fae5;
+  color: #065f46;
+}
+.tp-drawer-chip--profit-mid {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.tp-drawer-math {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
 .tp-drawer-reasoning {
-  font-size: 0.875rem;
-  line-height: 1.55;
+  font-size: 0.9rem;
+  line-height: 1.65;
   color: var(--color-on-surface);
   margin-bottom: 1.5rem;
 }

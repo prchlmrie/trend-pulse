@@ -48,9 +48,9 @@ type TrendDetailFull = {
 
 function opportunityHeadline(t: TrendDetailFull): string {
   const a = (t.suggested_action || 'IGNORE').toUpperCase();
-  if (a === 'SELL') return 'Strong scale opportunity';
-  if (a === 'TEST') return 'Strong test opportunity';
-  return 'Hold-and-watch posture';
+  if (a === 'SELL') return 'Great for growing your business 🚀';
+  if (a === 'TEST') return 'Good for a quick test 🧪';
+  return 'Wait and see for now 👀';
 }
 
 function executiveSubhead(t: TrendDetailFull, ue: ReturnType<typeof unitEconomics>, profileBudget: number | null): string {
@@ -74,16 +74,16 @@ function demandThermometer(t: TrendDetailFull): { fill: number; status: string; 
   const growth = Math.min(40, Math.max(0, Number(t.predicted_growth_14d))) / 40;
   const eng = Math.min(1, Math.log10(Number(t.total_engagement) + 10) / 5.2);
   const fill = Math.round(Math.min(100, vel * 40 + growth * 35 + eng * 25));
-  let status = 'Cold shelf';
-  if (fill >= 78) status = 'Viral-ready heat';
-  else if (fill >= 58) status = 'Heating up';
-  else if (fill >= 42) status = 'Warming';
-  else if (fill >= 26) status = 'Steady pulse';
+  let status = 'Not trending yet';
+  if (fill >= 78) status = 'Going Viral! 🔥';
+  else if (fill >= 58) status = 'Rising Fast 📈';
+  else if (fill >= 42) status = 'Getting Noticed';
+  else if (fill >= 26) status = 'Steady interest';
   const g = Number(t.predicted_growth_14d) || 0;
   const caption =
     g >= 3
-      ? `Customer interest grew about ${g.toFixed(0)}% in the modeled 14-day window.`
-      : 'Lift is modest in the modeled window—keep inventory tight.';
+      ? `Interest grew about ${g.toFixed(0)}% in the last 2 weeks.`
+      : "Demand is slow right now — don't buy too much at once.";
   return { fill, status, caption };
 }
 
@@ -94,35 +94,35 @@ function riskLandscape(t: TrendDetailFull): { label: string; tone: RiskTone; tex
   const density: RiskTone = comp === 'LOW' ? 'low' : comp === 'HIGH' ? 'high' : 'med';
   const densityText =
     density === 'low'
-      ? 'Fewer major sellers crowding this niche in your snapshot.'
+      ? 'Not many people are selling this yet — easy to stand out!'
       : density === 'high'
-        ? 'Many competing listings—discovery is noisier.'
-        : 'Balanced crowd levels.';
+        ? 'Lots of other sellers — it might be harder to get noticed.'
+        : 'A normal amount of competition.';
   const priceWar: RiskTone =
     comp === 'HIGH' && Number(t.velocity ?? 0) < 0.28 ? 'high' : comp === 'HIGH' ? 'med' : 'low';
   const priceText =
     priceWar === 'high'
-      ? 'Promo cycles may erode list price faster.'
+      ? 'Prices might drop soon as sellers compete for customers.'
       : priceWar === 'med'
-        ? 'Watch for discounting if velocity cools.'
-        : 'List band looks comparatively stable in the catalog read.';
+        ? 'Keep an eye on prices; they might shift if demand slows down.'
+        : "Prices look stable and shouldn't change much soon.";
   const life = (t.lifecycle_stage || '').toUpperCase();
   let hype: RiskTone = 'med';
-  let hypeText = 'Trend relevance should hold for a typical season window.';
+  let hypeText = 'This trend should stay popular for a while.';
   if (life === 'DECLINING') {
     hype = 'high';
-    hypeText = 'Lifecycle is cooling—plan exit timing, not long holds.';
+    hypeText = 'People are losing interest — plan to sell out fast.';
   } else if (life === 'EMERGING' || life === 'GROWING') {
     hype = 'low';
-    hypeText = 'Still early enough that demand can run for a couple of months if buyers follow.';
+    hypeText = "It's still early! This trend has plenty of life left.";
   } else if (life === 'PEAKING') {
     hype = 'med';
-    hypeText = 'Peak attention—expect trend power to soften over the next weeks.';
+    hypeText = 'It&apos;s at peak popularity — it might start to fade in a few weeks.';
   }
   return [
-    { label: 'Market density', tone: density, text: densityText },
-    { label: 'Price war risk', tone: priceWar, text: priceText },
-    { label: 'Hype longevity', tone: hype, text: hypeText },
+    { label: 'Competition', tone: density, text: densityText },
+    { label: 'Pricing Risk', tone: priceWar, text: priceText },
+    { label: 'How long it lasts', tone: hype, text: hypeText },
   ];
 }
 
@@ -264,10 +264,10 @@ export function TrendDetail() {
   const steps = gameplanSteps(t, { units: L.units, ue: L.ue, sellDays: L.sellDays });
 
   return (
-    <div className="td-magazine min-h-full bg-[var(--td-canvas)] pb-20 font-body text-on-surface">
+    <div className="td-magazine font-body text-on-surface">
       {showStrategy && <GenerateStrategyPanel onClose={() => setShowStrategy(false)} />}
 
-      <main className="td-main td-blueprint mx-auto max-w-[1200px] px-5 py-8 md:px-8 md:py-10">
+      <main className="td-main td-blueprint mx-auto max-w-[1200px] px-5 pt-8 md:px-8 md:pt-10">
         <header className="td-masthead">
           <div className="td-masthead-top">
             <Link to="/trends" className="td-back">
@@ -433,16 +433,24 @@ export function TrendDetail() {
             </div>
           </div>
         </section>
+
       </main>
 
-      <footer className="td-footer">
-        <div className="td-footer-inner mx-auto max-w-[1200px] px-5 md:px-8">
-          <span className="td-footer-brand">TrendPulse</span>
-          <nav className="td-footer-nav">
-            <Link to="/dashboard">Command Center</Link>
-            <Link to="/trends">Explorer</Link>
-            <Link to="/ai-analyst">Analyst</Link>
+      <footer className="td-footer mx-auto w-full max-w-[1200px] px-5 md:px-8">
+        <div className="td-footer-inner">
+          <div className="td-footer-brand-block">
+            <Link to="/dashboard" className="td-footer-brand">
+              TrendPulse
+            </Link>
+            <p className="td-footer-tagline">Signals and buying plans for resellers</p>
+          </div>
+          <nav className="td-footer-nav" aria-label="Quick links">
+            <Link to="/dashboard">Dashboard</Link>
+            <Link to="/trends">Browse Trends</Link>
+            <Link to="/opportunities">Find Profits</Link>
+            <Link to="/ai-analyst">Ask the AI</Link>
           </nav>
+          <p className="td-footer-copy">© 2026 TrendPulse</p>
         </div>
       </footer>
     </div>

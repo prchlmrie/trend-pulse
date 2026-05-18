@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { fetchNotifications, getAccessToken, runPipeline, setAccessToken } from '../api/client';
+import { MagicFab } from './MagicFab';
 import './Layout.css';
 
 function pathActive(pathname: string, to: string): boolean {
@@ -14,6 +15,7 @@ function pathActive(pathname: string, to: string): boolean {
 
 export function Layout() {
   const location = useLocation();
+  const isTrendDetail = /^\/trends\/[^/]+$/.test(location.pathname);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const token = getAccessToken();
@@ -60,32 +62,32 @@ export function Layout() {
       <aside className="sidebar">
         <div className="sidebar-brand">
           <div className="sidebar-brand-title">TrendPulse</div>
-          <div className="sidebar-brand-tag">Predictive Oracle AI</div>
+          <div className="sidebar-brand-tag">See what sells before anyone else</div>
         </div>
 
         <nav className="nav-menu">
           <Link to="/dashboard" className={`nav-link ${pathActive(location.pathname, '/dashboard') ? 'active' : ''}`}>
             <span className="material-symbols-outlined nav-icon">dashboard</span>
-            Command Center
+            Dashboard
           </Link>
           <Link to="/trends" className={`nav-link ${pathActive(location.pathname, '/trends') ? 'active' : ''}`}>
             <span className="material-symbols-outlined nav-icon">insights</span>
-            Trend Explorer
+            Browse Trends
           </Link>
           <Link to="/opportunities" className={`nav-link ${pathActive(location.pathname, '/opportunities') ? 'active' : ''}`}>
             <span className="material-symbols-outlined nav-icon">monetization_on</span>
-            Opportunity Finder
+            Find Profits
           </Link>
           <Link to="/ai-analyst" className={`nav-link ${pathActive(location.pathname, '/ai-analyst') ? 'active' : ''}`}>
             <span className="material-symbols-outlined nav-icon">auto_awesome</span>
-            AI Analyst
+            Ask the AI
           </Link>
           <Link
             to="/reseller-blueprint"
             className={`nav-link ${pathActive(location.pathname, '/reseller-blueprint') ? 'active' : ''}`}
           >
             <span className="material-symbols-outlined nav-icon">savings</span>
-            Reseller blueprint
+            Business Plan
           </Link>
         </nav>
 
@@ -95,7 +97,7 @@ export function Layout() {
           <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
             bolt
           </span>
-          Generate blueprint
+          Get Business Plan
         </Link>
 
         <div className="sidebar-footer">
@@ -106,7 +108,7 @@ export function Layout() {
             onClick={() => pipelineMutation.mutate()}
           >
             <span className="material-symbols-outlined nav-icon">database</span>
-            {pipelineMutation.isPending ? 'Running…' : 'Refresh catalog (pipeline)'}
+            {pipelineMutation.isPending ? 'Searching…' : 'Find New Trends'}
           </button>
           {token ? (
             <button type="button" className="nav-link nav-link--subtle" onClick={logout}>
@@ -147,10 +149,11 @@ export function Layout() {
             </div>
           </div>
         </header>
-        <div className="page-container">
+        <div className={`page-container${isTrendDetail ? ' page-container--trend-detail' : ''}`}>
           <Outlet />
         </div>
       </main>
+      <MagicFab />
     </div>
   );
 }

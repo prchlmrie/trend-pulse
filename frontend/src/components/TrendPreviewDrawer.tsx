@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchTrendDetail } from '../api/client';
 import { formatPHP, trendHeroImage } from '../utils/formatters';
+import { humanizeAction, humanizeRisk, momentumArrow, profitTier, trendSnapshotParagraph } from '../utils/merchantFriendly';
+import { merchantStatus, unitEconomics } from '../utils/resellerLedger';
 import './TrendPreviewDrawer.css';
 
 type Props = {
@@ -19,6 +21,20 @@ export function TrendPreviewDrawer({ trendId, onClose }: Props) {
     queryFn: () => fetchTrendDetail(trendId!),
     enabled: open && trendId != null,
   });
+
+  const summary = useMemo(() => {
+    if (!trend) return '';
+    return trendSnapshotParagraph(trend as Parameters<typeof trendSnapshotParagraph>[0]);
+  }, [trend]);
+
+  const ue = useMemo(() => {
+    if (!trend) return null;
+    return unitEconomics(
+      Number(trend.price_min ?? 0),
+      Number(trend.price_max ?? 0),
+      Number(trend.profit_score ?? 0),
+    );
+  }, [trend]);
 
   useEffect(() => {
     if (!open) return;
@@ -45,13 +61,19 @@ export function TrendPreviewDrawer({ trendId, onClose }: Props) {
     navigate(`/trends/${trendId}`);
   };
 
+  const momentum = trend
+    ? momentumArrow(Number(trend.velocity ?? 0), Number(trend.predicted_growth_14d ?? 0))
+    : null;
+  const profit = trend ? profitTier(Number(trend.profit_score ?? 0)) : null;
+  const status = trend ? merchantStatus(trend.lifecycle_stage as string) : null;
+
   return (
     <div className="tp-drawer-root" role="dialog" aria-modal="true" aria-labelledby="tp-drawer-title">
       <button type="button" className="tp-drawer-backdrop" aria-label="Close panel" onClick={onClose} />
       <div className="tp-drawer-panel">
         <div className="tp-drawer-panel-inner">
           <div className="tp-drawer-toolbar">
-            <p className="tp-drawer-toolbar-label">Trend snapshot</p>
+            <p className="tp-drawer-toolbar-label">Quick look</p>
             <button type="button" className="tp-drawer-close" onClick={onClose} aria-label="Close">
               <span className="material-symbols-outlined">close</span>
             </button>
@@ -69,36 +91,32 @@ export function TrendPreviewDrawer({ trendId, onClose }: Props) {
             <div className="tp-drawer-body">
               <div className="tp-drawer-hero">
                 <img src={trendHeroImage(trend)} alt="" className="tp-drawer-hero-img" />
+                {status && <span className="tp-drawer-badge">{status.label}</span>}
               </div>
               <h2 id="tp-drawer-title" className="tp-drawer-title">
                 {trend.name ?? 'Trend'}
               </h2>
-              <p className="tp-drawer-meta">
-                {trend.lifecycle_stage} · {trend.suggested_action}
-              </p>
-              <dl className="tp-drawer-stats">
-                <div>
-                  <dt>Growth (14d)</dt>
-                  <dd>+{Number(trend.predicted_growth_14d).toFixed(0)}%</dd>
-                </div>
-                <div>
-                  <dt>Profit score</dt>
-                  <dd>{formatPHP(trend.profit_score, true)}</dd>
-                </div>
-                <div>
-                  <dt>Risk</dt>
-                  <dd>{trend.risk_level}</dd>
-                </div>
-              </dl>
-              {(trend.reasoning || '').trim() ? (
-                <p className="tp-drawer-reasoning">{(trend.reasoning as string).slice(0, 280)}{(trend.reasoning as string).length > 280 ? '…' : ''}</p>
-              ) : null}
+              <div className="tp-drawer-chips">
+                {momentum && (
+                  <span className={`tp-drawer-chip tp-drawer-chip--${momentum.direction}`}>{momentum.label}</span>
+                )}
+                {profit && <span className={`tp-drawer-chip tp-drawer-chip--profit-${profit.tone}`}>{profit.label}</span>}
+                <span className="tp-drawer-chip">{humanizeAction(trend.suggested_action as string)}</span>
+                <span className="tp-drawer-chip">{humanizeRisk(trend.risk_level as string)}</span>
+              </div>
+              {ue && (
+                <p className="tp-drawer-math font-tabular">
+                  About {formatPHP(ue.wholesale, false)} cost → {formatPHP(ue.retail, false)} sell →{' '}
+                  {formatPHP(ue.profitPerUnit, false)} profit each
+                </p>
+              )}
+              <p className="tp-drawer-reasoning">{summary}</p>
               <div className="tp-drawer-actions">
                 <button type="button" className="tp-drawer-btn tp-drawer-btn--primary" onClick={goFull}>
-                  Open full trend page
+                  View full details
                 </button>
                 <button type="button" className="tp-drawer-btn tp-drawer-btn--ghost" onClick={onClose}>
-                  Stay on Command Center
+                  Close
                 </button>
               </div>
             </div>

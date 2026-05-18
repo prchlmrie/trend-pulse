@@ -5,17 +5,17 @@ export type MerchantStatus = { label: string; hint: string };
 /** Traffic-light hype from velocity (0–1.5 scale). */
 export function hypeTraffic(velocity: number): { emoji: string; label: string } {
   const v = Math.min(1.5, Math.max(0, Number(velocity) || 0));
-  if (v >= 0.45) return { emoji: '🟢', label: 'Fast mover' };
-  if (v >= 0.2) return { emoji: '🟡', label: 'Steady' };
-  return { emoji: '🔴', label: 'Slow' };
+  if (v >= 0.45) return { emoji: '🔥', label: 'High Demand' };
+  if (v >= 0.2) return { emoji: '✅', label: 'Doing Well' };
+  return { emoji: '👀', label: 'Quiet' };
 }
 
 /** Reseller-friendly competition wording. */
 export function crowdWords(competitionLevel: string | undefined | null): string {
   const u = (competitionLevel || '').toUpperCase();
-  if (u === 'LOW') return 'Wide open';
-  if (u === 'HIGH') return 'Saturated';
-  return 'Fair';
+  if (u === 'LOW') return 'Easy (No Competition) ✨';
+  if (u === 'HIGH') return 'Tough (Crowded) 🔥';
+  return 'Moderate 🤝';
 }
 
 /** Sell-through tier for signal bars (no emoji). */
@@ -25,7 +25,7 @@ export function sellThroughSpeed(velocity: number): SellThroughSpeed {
   const v = Math.min(1.5, Math.max(0, Number(velocity) || 0));
   if (v >= 0.45) return { bars: 3, label: 'Fast', hint: 'Expected to sell out in under 7 days.' };
   if (v >= 0.2) return { bars: 2, label: 'Steady', hint: 'Consistent sales over 14–30 days.' };
-  return { bars: 1, label: 'Slow', hint: 'Long-term hold; slow movement.' };
+  return { bars: 1, label: 'Slow', hint: 'Takes longer to sell; small batches only.' };
 }
 
 export type MarketSaturationTone = 'open' | 'fair' | 'saturated';
@@ -39,18 +39,18 @@ export function marketSaturation(competitionLevel: string | undefined | null): {
   if (u === 'LOW')
     return {
       label: 'Wide open',
-      detail: 'Very few resellers listing this — higher chance of quick sales.',
+      detail: 'Hardly anyone else is selling this — very easy to stand out.',
       tone: 'open',
     };
   if (u === 'HIGH')
     return {
-      label: 'Saturated',
-      detail: 'Many sellers — expect to compete on price and thinner margins.',
+      label: 'Crowded',
+      detail: 'Lots of sellers — you will need to offer a great price to win.',
       tone: 'saturated',
     };
   return {
-    label: 'Fair',
-    detail: 'Some competition, but room for more operators.',
+    label: 'Balanced',
+    detail: 'A healthy number of sellers, but still plenty of room for you.',
     tone: 'fair',
   };
 }
@@ -64,22 +64,22 @@ export function roiOnCapital(invest: number, profit: number): number {
 /** Merchant-facing CTA copy for the catalog row. */
 export function merchantRowAction(action: string | undefined | null): string {
   const a = (action || 'IGNORE').toUpperCase();
-  if (a === 'TEST') return 'Buy starter pack';
-  if (a === 'SELL') return 'Scale inventory';
-  return 'Watch / wait';
+  if (a === 'TEST') return 'Try a small pack';
+  if (a === 'SELL') return 'Stock up now';
+  return 'Wait for a better time';
 }
 
 export function merchantStatus(lifecycleStage: string | undefined | null): MerchantStatus {
   const s = (lifecycleStage || 'EMERGING').toUpperCase();
   if (s === 'DECLINING')
-    return { label: 'Liquidate', hint: 'Sell remaining stock fast — hype is cooling.' };
+    return { label: 'Clearance', hint: 'Sell what you have fast — people are moving on.' };
   if (s === 'PEAKING')
-    return { label: 'Market saturated', hint: 'Many sellers; margins may compress.' };
+    return { label: 'Very Popular', hint: 'Mainstream now; lots of competition.' };
   if (s === 'GROWING')
-    return { label: 'Ride the wave', hint: 'Demand is climbing — still room before the peak.' };
+    return { label: 'Rising Fast', hint: 'Demand is climbing — great time to join!' };
   if (s === 'EMERGING')
-    return { label: 'Buy now', hint: 'Get in early before prices or competition spike.' };
-  return { label: 'Watch', hint: 'Validate demand before sizing inventory.' };
+    return { label: 'Early Bird', hint: 'Get in before everyone else finds out.' };
+  return { label: 'Watching', hint: 'Waiting for more people to start talking about it.' };
 }
 
 export type UnitEconomics = {

@@ -1,9 +1,13 @@
 import sqlite3
+from pathlib import Path
 
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DB_NAME = "trendpulse.db"
+DB_PATH = _BACKEND_ROOT / DB_NAME
+
 
 def get_connection():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_PATH)
     return conn
 
 def create_tables():

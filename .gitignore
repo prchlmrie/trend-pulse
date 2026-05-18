@@ -8,4 +8,6 @@ __pycache__/
 .venv/
 venv/
 .chroma_analyst/
+backend/.chroma_analyst/
+backend/trendpulse.db
 frontend/dist/

@@ -26,20 +26,20 @@ type SuggestRow = { id: number; name: string };
 
 const CONSULTANT_SHORTCUTS: { label: string; build: (trendPhrase: string) => string }[] = [
   {
-    label: 'Is this profitable?',
-    build: (t) => `Is "${t}" profitable for resale? Give per-unit upside, risks, and who it fits.`,
+    label: 'Should I buy this?',
+    build: (t) => `Is "${t}" a good idea to sell? Tell me the profit, risks, and if it's right for me.`,
   },
   {
-    label: 'Stocking advice',
-    build: (t) => `Stocking advice for "${t}": starter units, risk level, and how fast to reorder.`,
+    label: 'How many should I order?',
+    build: (t) => `Stocking advice for "${t}": how many should I buy to start, and when should I reorder?`,
   },
   {
-    label: 'Is the hype dying?',
-    build: (t) => `Is the hype dying for "${t}"? Use lifecycle, velocity, and the last 48h of signals.`,
+    label: 'Is it too late?',
+    build: (t) => `Is the trend for "${t}" dying out? Look at the latest signals and tell me if it's still safe.`,
   },
   {
-    label: 'Competitor check',
-    build: (t) => `Competitor check for "${t}" — how crowded is this niche and what does that mean for pricing?`,
+    label: 'Who else is selling this?',
+    build: (t) => `How many other people are selling "${t}"? Will I have to lower my prices to compete?`,
   },
 ];
 
@@ -63,7 +63,7 @@ function WhatIfStrip({
   const { units, netProfit } = whatIfFromCapital(capital, { wholesale, retail: wholesale + profitPerUnit, profitPerUnit });
   return (
     <div className="ai-whatif">
-      <p className="ai-whatif-label font-headline">I have this much capital — what&apos;s my profit?</p>
+      <p className="ai-whatif-label font-headline">I have this much to spend — how much will I make?</p>
       <div className="ai-whatif-row">
         <input
           type="range"
@@ -78,8 +78,8 @@ function WhatIfStrip({
         <span className="ai-whatif-value font-tabular">{formatPHP(capital, false)}</span>
       </div>
       <p className="ai-whatif-summary font-tabular">
-        With <strong>{formatPHP(capital, false)}</strong>, you can land about <strong>{units}</strong> units and net roughly{' '}
-        <strong className="ai-whatif-profit">{formatPHP(netProfit, false)}</strong> (modeled, before shipping and ops).
+        With <strong>{formatPHP(capital, false)}</strong>, you can buy about <strong>{units}</strong> units and make roughly{' '}
+        <strong className="ai-whatif-profit">{formatPHP(netProfit, false)}</strong> in profit.
       </p>
     </div>
   );

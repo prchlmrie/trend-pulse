@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { fetchDashboardSummary, fetchMe, getAccessToken } from '../api/client';
+import { profitTier } from '../utils/merchantFriendly';
 import { formatPHP, trendHeroImage } from '../utils/formatters';
 import {
   alertToTodoLine,
@@ -9,7 +10,6 @@ import {
   merchantStatus,
   parseDefaultUnits,
   shelfBadges,
-  stockingPlanLine,
   unitEconomics,
 } from '../utils/resellerLedger';
 import { GenerateStrategyPanel } from './GenerateStrategyPanel';
@@ -111,6 +111,45 @@ function ShelfStrip({ wholesale, retail, profit }: { wholesale: number; retail: 
   );
 }
 
+function buyingPlanParagraph(
+  hot: Opp,
+  economics: {
+    units: number;
+    wholesale: number;
+    retail: number;
+    profitPerUnit: number;
+    cap: number;
+  },
+  capital: number | null,
+  totalProfit: number,
+): string {
+  const status = merchantStatus(hot.lifecycle_stage);
+  const action = (hot.suggested_action || 'IGNORE').toUpperCase();
+  const units = economics.units;
+
+  let actionAdvice =
+    'Start with a small test batch first, then order more if sales go well.';
+  if (action === 'SELL') {
+    actionAdvice = 'Signals look strong — this is a good time to stock up.';
+  } else if (action === 'IGNORE') {
+    actionAdvice = 'We would wait on new stock until the trend picks up again.';
+  }
+
+  let budgetNote = '';
+  if (capital != null && capital > 0) {
+    const pct = Math.min(100, Math.round((economics.cap / capital) * 100));
+    budgetNote = ` That is about ${pct}% of your ${formatPHP(capital, false)} budget.`;
+  }
+
+  return (
+    `${hot.trend_name} is ${status.label.toLowerCase()} right now (${status.hint}). ` +
+    `To try it, buy around ${units} units for about ${formatPHP(economics.cap, false)} total ` +
+    `(roughly ${formatPHP(economics.wholesale, false)} per item). ` +
+    `If you sell near ${formatPHP(economics.retail, false)} each, you keep about ${formatPHP(economics.profitPerUnit, false)} profit per item — ` +
+    `about ${formatPHP(totalProfit, false)} if everything sells.${budgetNote} ${actionAdvice}`
+  );
+}
+
 function ShelfBadgesRow({ badges }: { badges: ReturnType<typeof shelfBadges> }) {
   const items: string[] = [];
   if (badges.fastSeller) items.push('Fast seller');
@@ -178,6 +217,11 @@ export function CommandCenter() {
   const hasMoreAlerts = allAlerts.length > 5;
   const buyWindow = (lc.emerging ?? 0) + (lc.growing ?? 0);
   const capital = me?.budget != null && me.budget > 0 ? Number(me.budget) : null;
+  const monthlyGoal = capital != null && capital > 0 ? capital * 2 : 20000;
+  const heroProfit =
+    hot && hotEconomics ? Math.round(hotEconomics.profitPerUnit * hotEconomics.units) : 0;
+  const goalPct = monthlyGoal > 0 ? Math.min(100, Math.round((heroProfit / monthlyGoal) * 100)) : 0;
+  const storyItems = opps.slice(0, 6);
   const activeTrends = Number(summary.active_trends_count ?? 0);
   const dreamNumber = Number(summary.total_catalog_profit_potential ?? 0);
 
@@ -186,7 +230,49 @@ export function CommandCenter() {
       {showStrategy && <GenerateStrategyPanel onClose={() => setShowStrategy(false)} />}
       <TrendPreviewDrawer trendId={drawerTrendId} onClose={() => setDrawerTrendId(null)} />
 
-      <header className="cc-pulse-bar">
+      {storyItems.length > 0 && (
+        <section className="cc-stories" aria-label="New hot items">
+          <div className="cc-stories-head">
+            <div>
+              <h2 className="cc-stories-title font-headline">New hot items</h2>
+              <p className="cc-stories-sub">Tap a product for a quick preview</p>
+            </div>
+            <Link to="/trends" className="cc-stories-link">
+              Browse all
+            </Link>
+          </div>
+          <div className="cc-stories-track" role="list">
+            {storyItems.map((sig, index) => {
+              const ue = unitEconomics(
+                Number(sig.price_min ?? 0),
+                Number(sig.price_max ?? 0),
+                Number(sig.profit_score ?? 0),
+              );
+              const tier = profitTier(Number(sig.profit_score ?? 0));
+              const badge =
+                index === 0 ? 'Top pick' : tier.tone === 'high' ? 'Hot' : tier.tone === 'mid' ? 'Solid' : 'Watch';
+              return (
+                <button
+                  key={sig.trend_id}
+                  type="button"
+                  role="listitem"
+                  className="cc-story-card"
+                  onClick={() => openTrend(sig.trend_id)}
+                >
+                  <span className="cc-story-media">
+                    <img src={trendHeroImage({ image_url: sig.image_url, name: sig.trend_name })} alt="" />
+                    <span className={`cc-story-badge cc-story-badge--${index === 0 ? 'top' : tier.tone}`}>{badge}</span>
+                  </span>
+                  <span className="cc-story-name">{sig.trend_name}</span>
+                  <span className="cc-story-meta font-tabular">Est. {formatPHP(ue.profitPerUnit, false)} profit/unit</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <header className="cc-pulse-bar cc-pulse-bar--compact" hidden>
         <div className="cc-pulse-bar-inner">
           <div className="cc-pulse-live" title="Catalog is updating">
             <span className="cc-pulse-dot-wrap">
@@ -198,21 +284,21 @@ export function CommandCenter() {
           <div className="cc-pulse-counts" aria-label="Merchant snapshot">
             <span title="Early demand — move before prices spike">
               <strong className="cc-pulse-num cc-pulse-num--emerge">{String(buyWindow).padStart(2, '0')}</strong>
-              <span className="cc-pulse-word"> buy window</span>
+              <span className="cc-pulse-word"> early bird</span>
             </span>
             <span className="cc-pulse-sep" aria-hidden>
               ·
             </span>
             <span title="Crowded window — margins may thin">
               <strong className="cc-pulse-num">{String(lc.peaking).padStart(2, '0')}</strong>
-              <span className="cc-pulse-word"> saturated</span>
+              <span className="cc-pulse-word"> very popular</span>
             </span>
             <span className="cc-pulse-sep" aria-hidden>
               ·
             </span>
             <span title="Clear stock while attention lasts">
               <strong className="cc-pulse-num cc-pulse-num--decline">{String(lc.declining).padStart(2, '0')}</strong>
-              <span className="cc-pulse-word"> liquidate</span>
+              <span className="cc-pulse-word"> fading out</span>
             </span>
           </div>
         </div>
@@ -221,28 +307,55 @@ export function CommandCenter() {
       <div className="cc-cockpit-grid">
         <div className="cc-stage">
           <div className="cc-stage-intro">
-            <h1 className="cc-hero-title">Daily profit opportunities</h1>
-            <p className="cc-hero-lead">
-              One hero pick, shelf math at a glance, and a short to-do list from your signals. Refresh data with{' '}
-              <strong className="text-on-background">Generate Trend</strong> in the sidebar.
-            </p>
+            <h1 className="cc-hero-title">Daily briefing</h1>
+            <p className="cc-hero-lead">One clear move for today — browse hot items above or check your to-do list.</p>
           </div>
 
-          <div className="cc-kpi-row cc-kpi-row--three">
+          <section className="cc-goal-card" aria-label="Monthly profit goal">
+            <div className="cc-goal-head">
+              <span className="cc-goal-label">Monthly profit goal</span>
+              <span className="cc-goal-pct font-tabular">{goalPct}% reached</span>
+            </div>
+            <div className="cc-goal-bar" role="progressbar" aria-valuenow={goalPct} aria-valuemin={0} aria-valuemax={100}>
+              <div className="cc-goal-fill" style={{ width: `${goalPct}%` }} />
+            </div>
+            <p className="cc-goal-hint">
+              {hot && hotEconomics
+                ? `Top pick could add about ${formatPHP(heroProfit, false)} toward a ${formatPHP(monthlyGoal, false)} target.`
+                : `Aim for ${formatPHP(monthlyGoal, false)} this month — run Find New Trends to refresh picks.`}
+            </p>
+          </section>
+
+          {hot && hotEconomics ? (
+            <article className="cc-briefing-card">
+              <p className="cc-briefing-kicker">Today&apos;s best move</p>
+              <h2 className="cc-briefing-headline">
+                Buy about {hotEconomics.units} units of &ldquo;{hot.trend_name}&rdquo;
+              </h2>
+              <p className="cc-briefing-profit font-tabular">
+                You could make roughly <strong>{formatPHP(heroProfit, false)}</strong> profit.
+              </p>
+              <button type="button" onClick={() => openTrend(hot.trend_id)} className="cc-briefing-cta">
+                See the plan
+              </button>
+            </article>
+          ) : null}
+
+          <div className="cc-kpi-row cc-kpi-row--three cc-kpi-row--hidden">
             <div className="cc-kpi-card">
-              <p className="cc-kpi-label">Capital available</p>
+              <p className="cc-kpi-label">Spending Money</p>
               <p className="cc-kpi-value font-tabular">{capital != null ? formatPHP(capital, false) : '—'}</p>
-              <p className="cc-kpi-hint">{capital != null ? 'From your profile budget.' : 'Sign in and set a budget to track impact.'}</p>
+              <p className="cc-kpi-hint">{capital != null ? 'Your current budget for new stock.' : 'Set a budget in your profile to see what you can afford.'}</p>
             </div>
             <div className="cc-kpi-card">
-              <p className="cc-kpi-label">Active trends</p>
+              <p className="cc-kpi-label">Tracked Trends</p>
               <p className="cc-kpi-value font-tabular">{activeTrends}</p>
-              <p className="cc-kpi-hint">Rows in your live catalog.</p>
+              <p className="cc-kpi-hint">Products we are watching for you.</p>
             </div>
             <div className="cc-kpi-card">
-              <p className="cc-kpi-label">Catalog profit pool</p>
+              <p className="cc-kpi-label">Potential Earnings</p>
               <p className="cc-kpi-value font-tabular cc-kpi-value--money">{formatPHP(dreamNumber, false)}</p>
-              <p className="cc-kpi-hint">Sum of modeled profit scores across insights.</p>
+              <p className="cc-kpi-hint">Total estimated profit if you sell everything.</p>
             </div>
           </div>
 
@@ -264,23 +377,11 @@ export function CommandCenter() {
               </div>
               <div className="cc-primary-body">
                 <h3 className="cc-primary-name">{hot.trend_name}</h3>
-                <ShelfBadgesRow badges={hotEconomics.badges} />
-                <ShelfStrip wholesale={hotEconomics.wholesale} retail={hotEconomics.retail} profit={hotEconomics.profitPerUnit} />
-                <p className="cc-primary-stock font-body text-sm leading-relaxed text-on-surface-variant">
-                  {stockingPlanLine(hot.suggested_action, hot.suggested_inventory, hot.velocity ?? 0)}
-                </p>
-                <p className="cc-primary-cap font-tabular text-sm text-on-background">
-                  About <strong>{formatPHP(hotEconomics.cap, false)}</strong> to enter at ~{hotEconomics.units} units (est. landed cost).
-                  {capital != null && capital > 0 ? (
-                    <>
-                      {' '}
-                      That is roughly <strong>{Math.min(100, Math.round((hotEconomics.cap / capital) * 100))}%</strong> of your{' '}
-                      {formatPHP(capital, false)} budget.
-                    </>
-                  ) : null}
+                <p className="cc-primary-summary">
+                  {buyingPlanParagraph(hot, hotEconomics, capital, heroProfit)}
                 </p>
                 <button type="button" onClick={() => openTrend(hot.trend_id)} className="cc-primary-cta">
-                  Open buying plan
+                  View full details
                 </button>
               </div>
             </article>
