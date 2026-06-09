@@ -1,0 +1,35 @@
+# Render Blueprint — deploy TrendPulse as a portfolio demo (API + static frontend).
+# In Render: New → Blueprint → connect this GitHub repo → Apply.
+# Step-by-step guide: DEPLOY.md
+
+services:
+  - type: web
+    name: trendpulse-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TRENDPULSE_DISABLE_CHROMADB
+        value: "1"
+
+  - type: web
+    name: trendpulse-web
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          name: trendpulse-api
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
